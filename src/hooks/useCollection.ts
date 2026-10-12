@@ -9,7 +9,7 @@ export function useCollection<T = any>(
   const [data, setData] = useState<T[]>(initial);
 
   useEffect(() => {
-    const unsubscribe = subscribe(collection, (rows) => {
+    const unsubscribe = subscribe(collection, (rows: any[]) => {
       setData(rows as T[]);
     });
     return unsubscribe;

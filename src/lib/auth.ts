@@ -1,24 +1,69 @@
-import { useEffect, useState } from 'react'
-import { supabase, usingSupabase } from './db'
+// src/lib/auth.ts
+import api from './api';
 
-const LOCAL_PW = (import.meta.env.VITE_ADMIN_PASSWORD as string | undefined) || 'change-me'
+export interface AdminUser {
+  id: string;
+  email: string;
+}
 
-export function useAdmin() {
-  const [ok, setOk] = useState(false)
-  const [ready, setReady] = useState(false)
-  useEffect(() => {
-    if (supabase) {
-      supabase.auth.getSession().then(({ data }) => { setOk(!!data.session); setReady(true) })
-      const { data } = supabase.auth.onAuthStateChange((_e, s) => setOk(!!s))
-      return () => data.subscription.unsubscribe()
-    }
-    setOk(sessionStorage.getItem('isdl:admin') === '1'); setReady(true)
-  }, [])
-  const login = async (email: string, pw: string): Promise<string | null> => {
-    if (supabase) { const { error } = await supabase.auth.signInWithPassword({ email, password: pw }); return error ? error.message : null }
-    if (pw === LOCAL_PW) { sessionStorage.setItem('isdl:admin', '1'); setOk(true); return null }
-    return 'Wrong password.'
+export interface LoginResponse {
+  message: string;
+  user: AdminUser;
+  session: {
+    access_token: string;
+    refresh_token?: string;
+  };
+}
+
+// Always false now — we don't use Supabase directly in the frontend
+export const usingSupabase = false;
+
+// Legacy stub so any old import doesn't crash at module load
+export const supabase = null;
+
+/**
+ * Log in an admin user via the backend.
+ */
+export async function signInWithPassword(email: string, password: string): Promise<AdminUser> {
+  const res = await api.post<LoginResponse>('/auth/login', { email, password });
+  const { session, user } = res.data;
+
+  localStorage.setItem('admin_token', session.access_token);
+  localStorage.setItem('admin_user', JSON.stringify(user));
+
+  return user;
+}
+
+/**
+ * Sign out — clears local state.
+ */
+export async function signOut(): Promise<void> {
+  try {
+    await api.post('/auth/logout');
+  } catch (e) {
+    // ignore network errors during logout
+  } finally {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
   }
-  const logout = async () => { if (supabase) await supabase.auth.signOut(); sessionStorage.removeItem('isdl:admin'); setOk(false) }
-  return { ok, ready, login, logout, usingSupabase }
+}
+
+/**
+ * Get the currently stored admin user (from localStorage).
+ */
+export function getCurrentUser(): AdminUser | null {
+  const raw = localStorage.getItem('admin_user');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AdminUser;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if there's a stored token.
+ */
+export function isLoggedIn(): boolean {
+  return !!localStorage.getItem('admin_token');
 }
