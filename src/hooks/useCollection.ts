@@ -1,16 +1,12 @@
-// src/hooks/useCollection.ts
 import { useEffect, useState } from 'react';
 import { subscribe } from '../lib/db';
 
-export function useCollection<T = any>(
-  collection: string,
-  initial: T[] = []
-): T[] {
-  const [data, setData] = useState<T[]>(initial);
+export function useCollection(collection, initial = []) {
+  const [data, setData] = useState(initial);
 
   useEffect(() => {
     const unsubscribe = subscribe(collection, (rows) => {
-      setData(rows as T[]);
+      setData(rows);
     });
     return unsubscribe;
   }, [collection]);

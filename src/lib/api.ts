@@ -1,8 +1,10 @@
-// src/lib/api.ts
 import axios from 'axios';
 
+const API_BASE =
+  import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_BASE,
 });
 
 api.interceptors.request.use((config) => {
@@ -10,14 +12,11 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-
-  // Let the browser set Content-Type for FormData (file uploads)
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type'];
   } else if (!config.headers['Content-Type']) {
     config.headers['Content-Type'] = 'application/json';
   }
-
   return config;
 });
 
