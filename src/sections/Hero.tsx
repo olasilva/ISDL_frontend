@@ -1,29 +1,32 @@
-import { useEffect, useState } from 'react'
-import Icon from '../components/Icon'
-import { go } from '../lib/utils'
-import { SLIDES } from '../data/content'
-
+// src/sections/Hero.tsx
 export default function Hero() {
-  const [i, setI] = useState(0)
-  const n = SLIDES.length
-  useEffect(() => { const t = setInterval(() => setI(v => (v + 1) % n), 8000); return () => clearInterval(t) }, [n, i])
-  const s = SLIDES[i]
   return (
-    <header className="hero" id="top">
-      <div className="hero-img" aria-hidden="true" />
-      <button className="arrow l" aria-label="Previous slide" onClick={() => setI((i + n - 1) % n)}><Icon n="left" size={16} /></button>
+    <section className="hero">
+      <div className="hero-img" />
+      <div className="hero-orb hero-orb-1" aria-hidden="true" />
+      <div className="hero-orb hero-orb-2" aria-hidden="true" />
+
       <div className="wrap">
-        <div className="slide" key={i}>
-          <span className="eyebrow"><i />{s.eyebrow}</span>
-          <h1>{s.title}</h1>
-          <p>{s.text}</p>
+        <div className="slide">
+          <div className="eyebrow">
+            <i />
+            Web Design Studio
+          </div>
+          <h1>Websites that work as hard as you do.</h1>
+          <p>
+            Catalogues, carts and global payment gateways — built mobile-first
+            and ready to grow with your business.
+          </p>
           <div className="row">
-            <button className="btn" onClick={() => go('services')}>Discover more</button>
-            <button className="link" onClick={() => go('contact')}>Get a quote</button>
+            <a href="#work" className="btn">
+              Discover more
+            </a>
+            <a href="#contact" className="link">
+              Get a quote
+            </a>
           </div>
         </div>
       </div>
-      <button className="arrow r" aria-label="Next slide" onClick={() => setI((i + 1) % n)}><Icon n="right" size={16} /></button>
-    </header>
-  )
+    </section>
+  );
 }

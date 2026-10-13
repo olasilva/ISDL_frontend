@@ -1,25 +1,17 @@
-// src/pages/Work.tsx
+// src/sections/Work.tsx
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import { WORK } from '../data/content';
-
-interface Update {
-  id: number;
-  title: string;
-  content: string;
-  image_url: string | null;
-  created_at: string;
-}
+import { updatesApi, type UpdateRow } from '../lib/db';
 
 export default function Work() {
-  const [updates, setUpdates] = useState<Update[]>([]);
+  const [updates, setUpdates] = useState<UpdateRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchPublished = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/updates/published');
-        setUpdates(res.data.data);
+        const data = await updatesApi.listPublished();
+        setUpdates(data);
       } catch (err) {
         console.error('Failed to load updates', err);
       } finally {
@@ -36,12 +28,12 @@ export default function Work() {
         <p className="sub">A few things we have shipped.</p>
 
         <div className="grid">
-          {/* Static work items from your content file */}
+          {/* Static work items from content file */}
           {WORK.map((w) => (
             <div className="card" key={w.title}>
               <h3>{w.title}</h3>
               <p>{w.text}</p>
-              {w.url ? (
+              {w.url && (
                 <p style={{ marginTop: 12 }}>
                   <a
                     className="btn sm alt"
@@ -52,15 +44,11 @@ export default function Work() {
                     Live demo
                   </a>
                 </p>
-              ) : (
-                <p className="muted" style={{ marginTop: 12 }}>
-                  Case study coming soon
-                </p>
               )}
             </div>
           ))}
 
-          {/* Dynamic updates from the admin panel */}
+          {/* Dynamic updates from admin panel */}
           {updates.map((u) => (
             <div className="card work-update-card" key={`admin-${u.id}`}>
               {u.image_url && (
@@ -81,7 +69,7 @@ export default function Work() {
             </div>
           ))}
 
-          {/* Loading skeleton — only while fetching */}
+          {/* Loading skeleton */}
           {loading && (
             <div className="card work-update-skeleton">
               <div className="skeleton-line skeleton-title" />

@@ -1557,3 +1557,1223 @@ footer a:hover {
   padding: 26px !important;
   min-height: 160px;
 }
+
+/* ==========================================================================
+   18. Animated Tech Marquee (Trust Bar)
+   ========================================================================== */
+.trust-marquee {
+  overflow: hidden;
+  position: relative;
+  padding: 18px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+}
+
+.trust-marquee-track {
+  display: flex;
+  gap: 60px;
+  width: max-content;
+  animation: marquee-scroll 32s linear infinite;
+}
+
+.trust-marquee:hover .trust-marquee-track {
+  animation-play-state: paused;
+}
+
+.trust-marquee-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.trust-marquee-item .bx {
+  font-size: 1.6rem;
+  color: var(--navy);
+  transition: transform 0.3s;
+}
+
+.trust-marquee-item:hover {
+  color: var(--text);
+}
+
+.trust-marquee-item:hover .bx {
+  transform: scale(1.15) rotate(-8deg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .trust-marquee-item .bx {
+    color: var(--yel);
+  }
+}
+
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ==========================================================================
+   19. Hero Floating Orbs & Animation
+   ========================================================================== */
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-orb-1 {
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, #2a5fa8 0%, transparent 70%);
+  top: -80px;
+  right: 10%;
+  animation: float-orb 12s ease-in-out infinite;
+}
+
+.hero-orb-2 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, #8fa8d1 0%, transparent 70%);
+  bottom: -60px;
+  left: 5%;
+  animation: float-orb 15s ease-in-out infinite reverse;
+  opacity: 0.35;
+}
+
+@keyframes float-orb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(30px, -40px) scale(1.08); }
+  66%      { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+/* Hero text staggered entrance */
+.hero .eyebrow,
+.hero h1,
+.hero p,
+.hero .row {
+  opacity: 0;
+  animation: hero-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+.hero .eyebrow { animation-delay: 0.2s; }
+.hero h1      { animation-delay: 0.4s; }
+.hero p       { animation-delay: 0.6s; }
+.hero .row    { animation-delay: 0.8s; }
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* ==========================================================================
+   20. Enhanced Card Hover + Reveal
+   ========================================================================== */
+.card {
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.5s;
+  pointer-events: none;
+}
+
+.card:hover::before {
+  opacity: 1;
+  animation: card-shine 1.2s ease forwards;
+}
+
+@keyframes card-shine {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+/* Icon bounce on card hover */
+.card .ico {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card:hover .ico {
+  transform: translateY(-4px) rotate(-6deg) scale(1.08);
+}
+
+/* ==========================================================================
+   21. Modal Popup Animation
+   ========================================================================== */
+.modal {
+  animation: modal-backdrop-in 0.3s ease forwards;
+}
+
+.modal .box {
+  animation: modal-pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ==========================================================================
+   22. Button Pulse & Shimmer
+   ========================================================================== */
+.btn:not(.sm):not(.alt)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  transform: translateX(-100%);
+}
+
+.btn:not(.sm):not(.alt) {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:not(.sm):not(.alt):hover::after {
+  animation: btn-shimmer 0.9s ease;
+}
+
+@keyframes btn-shimmer {
+  to { transform: translateX(100%); }
+}
+
+/* ==========================================================================
+   23. Section Headline Reveal
+   ========================================================================== */
+h2 {
+  position: relative;
+}
+
+h2::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -8px;
+  width: 40px;
+  height: 3px;
+  background: var(--navy);
+  border-radius: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+section:hover h2::after,
+h2:hover::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  h2::after {
+    background: var(--yel);
+  }
+}
+
+/* ==========================================================================
+   24. Number Counter Pulse (Process Section)
+   ========================================================================== */
+.num {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card:hover .num {
+  transform: scale(1.08);
+}
+
+/* ==========================================================================
+   25. Accessibility — Respect Reduced Motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .trust-marquee-track,
+  .hero-orb-1,
+  .hero-orb-2,
+  .hero .eyebrow,
+  .hero h1,
+  .hero p,
+  .hero .row,
+  .modal,
+  .modal .box {
+    animation: none !important;
+  }
+  .hero .eyebrow,
+  .hero h1,
+  .hero p,
+  .hero .row {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* ==========================================================================
+   26. Work Section Animations
+   ========================================================================== */
+.work-card,
+.card.work-update-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+              box-shadow 0.4s ease;
+}
+
+.work-card::after,
+.card.work-update-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--navy), #2a5fa8);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.work-card:hover::after,
+.card.work-update-card:hover::after {
+  transform: scaleX(1);
+}
+
+.work-card:hover,
+.card.work-update-card:hover {
+  transform: translateY(-6px) scale(1.015);
+  box-shadow: 0 20px 40px rgba(10, 27, 51, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .work-card::after,
+  .card.work-update-card::after {
+    background: linear-gradient(90deg, var(--yel), #8fa8d1);
+  }
+}
+
+/* ==========================================================================
+   27. Services Icon Animations
+   ========================================================================== */
+.card .ico {
+  position: relative;
+  overflow: hidden;
+}
+
+.card .ico::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255, 200, 61, 0.4) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.card:hover .ico::after {
+  opacity: 1;
+  animation: icon-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50%      { transform: scale(1.3); opacity: 0; }
+}
+
+.card .ico .bx {
+  position: relative;
+  z-index: 1;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.card:hover .ico .bx {
+  transform: rotate(-12deg) scale(1.15);
+}
+
+/* ==========================================================================
+   28. Process Steps — Timeline Reveal
+   ========================================================================== */
+#process .card {
+  position: relative;
+}
+
+#process .card::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--navy), transparent);
+  opacity: 0;
+  transition: opacity 0.5s, width 0.5s;
+}
+
+#process .card:hover::before {
+  opacity: 1;
+  width: 80%;
+}
+
+#process .num {
+  background: linear-gradient(135deg, var(--navy), #2a5fa8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              letter-spacing 0.4s;
+}
+
+#process .card:hover .num {
+  transform: scale(1.15);
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-color-scheme: dark) {
+  #process .num {
+    background: linear-gradient(135deg, var(--yel), #8fa8d1);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* ==========================================================================
+   29. Why Section — Tick Animation
+   ========================================================================== */
+.ticks li {
+  transition: transform 0.25s, padding-left 0.25s;
+}
+
+.ticks li:hover {
+  transform: translateX(6px);
+  padding-left: 28px;
+}
+
+.ticks li::before {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              color 0.3s;
+}
+
+.ticks li:hover::before {
+  transform: scale(1.4) rotate(15deg);
+}
+
+/* ==========================================================================
+   30. Packages — Float + Featured Glow
+   ========================================================================== */
+#packages .card {
+  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+              box-shadow 0.4s ease,
+              border-color 0.4s ease;
+}
+
+#packages .card:hover {
+  transform: translateY(-10px);
+}
+
+#packages .card.pop {
+  position: relative;
+}
+
+#packages .card.pop::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    var(--navy),
+    #2a5fa8,
+    #8fa8d1,
+    var(--navy)
+  );
+  background-size: 300% 300%;
+  z-index: -1;
+  animation: gradient-shift 6s ease infinite;
+  filter: blur(12px);
+  opacity: 0.4;
+}
+
+#packages .card.pop:hover::before {
+  opacity: 0.7;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+#packages .pill {
+  animation: pill-bounce 2s ease-in-out infinite;
+}
+
+@keyframes pill-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* Feature tick list — staggered entrance */
+#packages .card .ticks li {
+  opacity: 0;
+  animation: tick-fade-in 0.5s ease forwards;
+}
+
+#packages .card .ticks li:nth-child(1) { animation-delay: 0.05s; }
+#packages .card .ticks li:nth-child(2) { animation-delay: 0.10s; }
+#packages .card .ticks li:nth-child(3) { animation-delay: 0.15s; }
+#packages .card .ticks li:nth-child(4) { animation-delay: 0.20s; }
+#packages .card .ticks li:nth-child(5) { animation-delay: 0.25s; }
+#packages .card .ticks li:nth-child(6) { animation-delay: 0.30s; }
+
+@keyframes tick-fade-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ==========================================================================
+   31. FAQ — Accordion Smooth
+   ========================================================================== */
+details.card {
+  transition: background 0.3s, transform 0.3s, box-shadow 0.3s;
+}
+
+details.card:hover {
+  transform: translateX(4px);
+}
+
+details.card[open] {
+  border-color: var(--border-accent);
+  box-shadow: 0 8px 24px rgba(10, 27, 51, 0.08);
+}
+
+details.card summary {
+  position: relative;
+  padding-right: 32px;
+  transition: color 0.25s;
+}
+
+details.card summary::after {
+  content: '+';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: var(--muted);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              color 0.25s;
+}
+
+details.card[open] summary::after {
+  transform: translateY(-50%) rotate(45deg);
+  color: var(--navy);
+}
+
+@media (prefers-color-scheme: dark) {
+  details.card[open] summary::after {
+    color: var(--yel);
+  }
+}
+
+details.card[open] p {
+  animation: faq-slide-in 0.4s ease forwards;
+}
+
+@keyframes faq-slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Remove default triangle marker */
+details.card summary::-webkit-details-marker {
+  display: none;
+}
+details.card summary {
+  list-style: none;
+}
+
+/* ==========================================================================
+   32. Contact Form Animations
+   ========================================================================== */
+#contact .card {
+  position: relative;
+}
+
+#contact .card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    transparent,
+    rgba(10, 27, 51, 0.15),
+    transparent
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.5s;
+  pointer-events: none;
+}
+
+#contact .card:focus-within::before {
+  opacity: 1;
+}
+
+.field input,
+.field textarea,
+.field select {
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(10, 27, 51, 0.06);
+}
+
+.field input:hover,
+.field textarea:hover,
+.field select:hover {
+  border-color: var(--border-accent);
+}
+
+/* Success message pop-in */
+.ok {
+  animation: success-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes success-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Error shake */
+.err {
+  animation: error-shake 0.4s ease;
+}
+
+@keyframes error-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+
+/* Send button loading spinner */
+.btn[disabled] {
+  position: relative;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+/* ==========================================================================
+   33. Footer Animations
+   ========================================================================== */
+footer .logo {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+footer .logo:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.fgrid a {
+  position: relative;
+  display: inline-block;
+  transition: color 0.25s, transform 0.25s;
+}
+
+.fgrid a:hover {
+  transform: translateX(4px);
+}
+
+.fgrid a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width 0.3s ease;
+}
+
+.fgrid a:hover::after {
+  width: 100%;
+}
+
+.fbar a {
+  transition: color 0.25s, transform 0.25s;
+  display: inline-block;
+}
+
+.fbar a:hover {
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   34. Section Scroll Reveal (Scroll-Triggered)
+   ========================================================================== */
+section > .wrap > h2,
+section > .wrap > .sub {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: section-header-rise 0.8s ease forwards;
+}
+
+section > .wrap > h2  { animation-delay: 0.1s; }
+section > .wrap > .sub { animation-delay: 0.25s; }
+
+@keyframes section-header-rise {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Grid items stagger reveal */
+.grid > * {
+  opacity: 0;
+  animation: grid-item-rise 0.6s ease forwards;
+}
+
+.grid > *:nth-child(1) { animation-delay: 0.30s; }
+.grid > *:nth-child(2) { animation-delay: 0.40s; }
+.grid > *:nth-child(3) { animation-delay: 0.50s; }
+.grid > *:nth-child(4) { animation-delay: 0.60s; }
+.grid > *:nth-child(5) { animation-delay: 0.70s; }
+.grid > *:nth-child(6) { animation-delay: 0.80s; }
+.grid > *:nth-child(7) { animation-delay: 0.90s; }
+.grid > *:nth-child(8) { animation-delay: 1.00s; }
+
+@keyframes grid-item-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ==========================================================================
+   35. FAB (Floating Buttons) Enhanced
+   ========================================================================== */
+.fab {
+  animation: fab-bob 3s ease-in-out infinite;
+}
+
+.fab.wa  { animation-delay: 0s; }
+.fab.up  { animation-delay: 1.5s; }
+
+@keyframes fab-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+.fab:hover {
+  animation: none;
+  transform: scale(1.15) rotate(8deg);
+}
+
+/* ==========================================================================
+   36. Reduced Motion Override
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .work-card,
+  .card.work-update-card,
+  .card .ico .bx,
+  #process .num,
+  #packages .card,
+  #packages .card.pop::before,
+  #packages .pill,
+  details.card,
+  details.card summary::after,
+  .fab,
+  .grid > *,
+  section > .wrap > h2,
+  section > .wrap > .sub {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .grid > * {
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   37. Live Chat Widget (Public)
+   ========================================================================== */
+.live-chat-btn {
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+  background: #059669;
+  z-index: 45;
+}
+
+.chat-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  padding: 0 5px;
+  border: 2px solid var(--bg);
+}
+
+.live-chat-window {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  height: 520px;
+  max-height: calc(100vh - 120px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(10, 27, 51, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 46;
+  animation: chat-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes chat-pop {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.live-chat-header {
+  background: var(--navy);
+  color: #fff;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.live-chat-header-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.live-chat-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+}
+
+.live-chat-header-info b {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.live-chat-header-info small {
+  font-size: 0.72rem;
+  color: #9fb0cc;
+}
+
+.live-chat-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.live-chat-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.live-chat-name-form {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  justify-content: center;
+}
+
+.live-chat-name-form p {
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.live-chat-name-form input {
+  width: 100%;
+}
+
+.live-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--soft);
+}
+
+.live-chat-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+
+.live-chat-empty .bx {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.chat-bubble {
+  max-width: 78%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  animation: bubble-in 0.3s ease;
+}
+
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-mine {
+  align-self: flex-end;
+  background: var(--navy);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-theirs {
+  align-self: flex-start;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-bubble-time {
+  font-size: 0.68rem;
+  opacity: 0.6;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.live-chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}
+
+.live-chat-input input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+
+.live-chat-input button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--navy);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.live-chat-input button:hover:not(:disabled) {
+  transform: scale(1.08);
+  background: var(--navy2);
+}
+
+.live-chat-input button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   38. Live Chat Admin Panel
+   ========================================================================== */
+.chat-admin-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  height: calc(100vh - 220px);
+  min-height: 500px;
+}
+
+.chat-sessions {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.chat-sessions h3 {
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.chat-session-item {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  margin-bottom: 6px;
+  font-family: inherit;
+}
+
+.chat-session-item:hover {
+  background: var(--soft);
+}
+
+.chat-session-item.active {
+  background: var(--soft);
+  border-color: var(--navy);
+}
+
+.chat-session-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.chat-session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-session-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-session-badge {
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.chat-session-preview {
+  font-size: 0.78rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-session-time {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.chat-conversation {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-conversation-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--soft);
+}
+
+.chat-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  padding: 40px;
+  text-align: center;
+}
+
+.chat-empty-state .bx {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.chat-empty-state h3 {
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .live-chat-window {
+    width: calc(100vw - 24px);
+    right: 12px;
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  }
+  .chat-admin-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .chat-sessions {
+    max-height: 300px;
+  }
+  .chat-conversation {
+    min-height: 500px;
+  }
+}

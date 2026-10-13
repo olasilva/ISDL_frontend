@@ -1,4 +1,4 @@
-// src/pages/Contact.tsx
+// src/sections/Contact.tsx
 import { useState, type FormEvent } from 'react';
 import Field from '../components/Field';
 import { useForm } from '../hooks/useForm';
@@ -24,9 +24,9 @@ export default function Contact() {
     e.preventDefault();
     setSending(true);
     setError('');
+    setDone(false);
 
     try {
-      // Build the message: combine type + phone into the message field
       const messageParts = [`Project type: ${f.type}`];
       if (f.phone) messageParts.push(`Phone: ${f.phone}`);
       messageParts.push('', f.body);
@@ -40,20 +40,18 @@ export default function Contact() {
       reset();
       setDone(true);
     } catch (err: any) {
-      console.error('Contact form error:', err);
+      console.error('Contact form error:', err.response?.data || err.message);
       setError(
         err.response?.data?.error ||
-        'Could not send message. Please try WhatsApp or email instead.'
+          'Could not send message. Please try WhatsApp or email instead.'
       );
-      // Optional fallback: open mailto if API fails
-      // location.href = `mailto:${MAIL}?subject=${encodeURIComponent('New project: ' + f.type)}&body=${encodeURIComponent(f.body + '\n\n' + f.name + ' ' + f.phone)}`;
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <section id="contact">
+    <section id="contact" className="alt-bg">
       <div className="wrap">
         <h2>Tell us about your project</h2>
         <p className="sub">
@@ -65,15 +63,15 @@ export default function Contact() {
             className="lnk"
           >
             WhatsApp us
+          </a>{' '}
+          or email{' '}
+          <a href={`mailto:${MAIL}`} className="lnk">
+            {MAIL}
           </a>
           .
         </p>
 
-        <form
-          className="card"
-          onSubmit={submit}
-          style={{ maxWidth: 640 }}
-        >
+        <form className="card" onSubmit={submit} style={{ maxWidth: 640 }}>
           <div className="two">
             <Field label="Name">
               <input required {...bind('name')} />

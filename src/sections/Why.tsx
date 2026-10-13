@@ -1,9 +1,23 @@
-import { WHY } from '../data/content'
+// src/sections/Why.tsx
+import { WHY } from '../data/content';
+
 export default function Why() {
   return (
-    <section id="why" className="alt-bg"><div className="wrap">
-      <h2>Why work with ISDL</h2><p className="sub">Professional standards, whether you are across town or across the world.</p>
-      <div className="grid">{WHY.map(w => <div className="card" key={w[0]}><h3>{w[0]}</h3><p>{w[1]}</p></div>)}</div>
-    </div></section>
-  )
+    <section id="why">
+      <div className="wrap">
+        <h2>Why choose ISDL</h2>
+        <p className="sub">
+          We build websites that are fast, secure, and easy to maintain.
+        </p>
+
+        <div className="card" style={{ maxWidth: 640 }}>
+          <ul className="ticks">
+            {WHY.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
 }

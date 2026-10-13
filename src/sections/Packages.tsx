@@ -1,17 +1,35 @@
-import { PACKAGES } from '../data/content'
-import { go } from '../lib/utils'
+// src/sections/Packages.tsx
+import { PACKAGES } from '../data/content';
+
 export default function Packages() {
   return (
-    <section id="packages"><div className="wrap">
-      <h2>Packages</h2><p className="sub">Every project is quoted to fit. Pick a starting point and we will tailor it.</p>
-      <div className="grid">{PACKAGES.map((p, i) => (
-        <div className={'card' + (i === 1 ? ' pop' : '')} key={p.name}>
-          {i === 1 && <span className="pill" style={{ margin: 0 }}>Popular</span>}
-          <h3>{p.name}</h3><p>{p.note}</p>
-          <ul className="ticks">{p.items.map(x => <li key={x}>{x}</li>)}</ul>
-          <button className="btn sm" style={{ marginTop: 16 }} onClick={() => go('contact')}>Get a quote</button>
-        </div>))}
+    <section id="packages" className="alt-bg">
+      <div className="wrap">
+        <h2>Packages</h2>
+        <p className="sub">Simple, transparent pricing. No surprises.</p>
+
+        <div className="grid">
+          {PACKAGES.map((pkg) => (
+            <div className={`card ${pkg.featured ? 'pop' : ''}`} key={pkg.name}>
+              {pkg.featured && <span className="pill">Most popular</span>}
+              <h3>{pkg.name}</h3>
+              <div className="num" style={{ fontSize: '1.6rem', marginBottom: 14 }}>
+                {pkg.price}
+              </div>
+              <ul className="ticks">
+                {pkg.features.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+              <p style={{ marginTop: 16 }}>
+                <a href="#contact" className="btn sm alt">
+                  Get started
+                </a>
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div></section>
-  )
+    </section>
+  );
 }

@@ -1,24 +1,94 @@
-import { useEffect, useRef, useState } from 'react'
-import { LEGAL } from '../data/content'
+// src/components/Legal.tsx
+import { useEffect, useState } from 'react';
+import { LEGAL } from '../data/content';
+
+type LegalKey = 'privacy' | 'terms';
+
 export default function Legal() {
-  const [k, setK] = useState<string | null>(null)
-  const ref = useRef<HTMLButtonElement>(null)
+  const [open, setOpen] = useState<LegalKey | null>(null);
+
   useEffect(() => {
-    const o = (e: Event) => setK((e as CustomEvent<string>).detail)
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setK(null)
-    window.addEventListener('legal', o); window.addEventListener('keydown', esc)
-    return () => { window.removeEventListener('legal', o); window.removeEventListener('keydown', esc) }
-  }, [])
-  useEffect(() => { if (k) ref.current?.focus() }, [k])
-  if (!k) return null
-  const [title, paras] = LEGAL[k]
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ key: LegalKey }>).detail;
+      if (detail?.key) setOpen(detail.key);
+    };
+    window.addEventListener('openLegal', handler);
+    return () => window.removeEventListener('openLegal', handler);
+  }, []);
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  if (!open) return null;
+
+  const data = LEGAL[open];
+
   return (
-    <div className="modal" onClick={e => e.target === e.currentTarget && setK(null)}>
-      <div className="box" role="dialog" aria-modal="true" aria-label={title}>
-        <h3>{title}</h3><p className="muted">Last updated 12 October 2026</p>
-        {paras.map((p, i) => <p key={i} style={{ margin: '12px 0' }}>{p}</p>)}
-        <button className="btn" ref={ref} onClick={() => setK(null)}>Close</button>
+    <div
+      className="modal"
+      onClick={() => setOpen(null)}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="legal-title"
+    >
+      <div className="box" onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}
+        >
+          <h2 id="legal-title" style={{ fontSize: '1.4rem', margin: 0 }}>
+            {data.title}
+          </h2>
+          <button
+            onClick={() => setOpen(null)}
+            className="btn-icon"
+            aria-label="Close"
+          >
+            <i className="bx bx-x" />
+          </button>
+        </div>
+
+        <p className="muted" style={{ marginBottom: 16 }}>
+          {data.updated}
+        </p>
+
+        <div
+          style={{
+            whiteSpace: 'pre-wrap',
+            lineHeight: 1.7,
+            fontSize: '0.94rem',
+            color: 'var(--text)',
+          }}
+        >
+          {data.body}
+        </div>
+
+        <div style={{ marginTop: 24, textAlign: 'right' }}>
+          <button onClick={() => setOpen(null)} className="btn-icon primary">
+            <i className="bx bx-check" />
+            Got it
+          </button>
+        </div>
       </div>
     </div>
-  )
+  );
 }

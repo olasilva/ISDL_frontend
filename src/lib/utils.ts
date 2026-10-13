@@ -6,3 +6,4 @@ export const go = (id: string) => {
 }
 export const wa = (n?: string, t = '') => `https://wa.me/${String(n || PHONE).replace(/\D/g, '')}?text=${encodeURIComponent(t)}`
 export const openLegal = (k: 'privacy' | 'terms') => window.dispatchEvent(new CustomEvent('legal', { detail: k }))
+
