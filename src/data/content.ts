@@ -36,6 +36,11 @@ export const WORK = [
     url: '',
   },
   {
+    title: 'Brand Website Redesign',
+    text: 'Complete visual refresh with new design system, typography, and motion.',
+    url: '',
+  },
+  {
     title: 'E-Commerce Platform',
     text: 'Full-stack store with global payment integration and inventory management.',
     url: '',
@@ -59,6 +64,11 @@ export const WORK = [
 
 // ---------- Services ----------
 export const SERVICES = [
+  {
+    icon: 'bx-palette',
+    title: 'Web Design',
+    text: 'Pixel-perfect UI/UX design for websites and apps — wireframes, prototypes, and beautiful production-ready designs.',
+  },
   {
     icon: 'bx-code-alt',
     title: 'Web Development',
@@ -132,6 +142,7 @@ export const PACKAGES = [
     price: 'From $499',
     features: [
       'Up to 5 pages',
+      'Web design',
       'Mobile-responsive',
       'Contact form',
       'Basic SEO',
@@ -145,6 +156,7 @@ export const PACKAGES = [
     features: [
       'Up to 15 pages',
       'Custom design',
+      'Web design + development',
       'CMS integration',
       'Global payment gateway',
       'Advanced SEO',
@@ -174,7 +186,7 @@ export const FAQ = [
     a: 'Most websites take 2–6 weeks depending on complexity. We give you a firm timeline before we start.',
   },
   {
-    q: 'Do you work with clients outside Nigeria?',
+    q: 'Do you work with international clients?',
     a: 'Yes — we work with clients worldwide and accept global payments.',
   },
   {
