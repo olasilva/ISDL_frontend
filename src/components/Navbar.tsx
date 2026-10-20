@@ -1,5 +1,6 @@
 // src/components/Navbar.tsx
 import { useState } from 'react';
+import { Link } from 'react-router-dom'; // Import Link
 import { NAV } from '../data/content';
 
 export default function Navbar() {
@@ -8,7 +9,7 @@ export default function Navbar() {
   return (
     <nav>
       <div className="wrap nav-in">
-        <a href="#/" className="logo">
+        <a href="/" className="logo">
           <b>ISDL</b>
           <small>Built Better</small>
         </a>
@@ -21,19 +22,28 @@ export default function Navbar() {
               </a>
             </div>
           ))}
-          <a
-            href="#contact"
-            className="btn sm mob-only"
+          
+          {/* Show login button on mobile menu */}
+          <Link 
+            to="/login" 
+            className="btn sm mob-only" 
+            style={{ marginTop: 10 }}
             onClick={() => setOpen(false)}
           >
-            Get a quote
-          </a>
+            Client Login
+          </Link>
         </div>
 
         <div className="nav-r">
-          <a href="#contact" className="btn sm hide-sm">
-            Get a quote
-          </a>
+          {/* New Client Login Button */}
+          <Link to="/login" className="btn-icon hide-sm" style={{ border: 'none' }}>
+            Client Login
+          </Link>
+          
+          <Link to="/signup" className="btn sm hide-sm">
+            Get Started
+          </Link>
+
           <button
             className="burger"
             onClick={() => setOpen(!open)}

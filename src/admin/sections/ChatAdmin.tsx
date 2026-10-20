@@ -105,7 +105,6 @@ export default function ChatAdmin() {
       </div>
 
       <div className="chat-admin-layout">
-        {/* Session list */}
         <aside className="chat-sessions">
           <h3>Conversations ({sessions.length})</h3>
           {sessions.length === 0 ? (
@@ -135,7 +134,6 @@ export default function ChatAdmin() {
           )}
         </aside>
 
-        {/* Conversation */}
         <main className="chat-conversation">
           {!activeSession ? (
             <div className="chat-empty-state">

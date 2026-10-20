@@ -1,6 +1,7 @@
 // src/components/LiveChat.tsx
 import { useEffect, useRef, useState } from 'react';
 import api from '../lib/api';
+import { supabase } from '../lib/supabaseClient';
 
 interface ChatMessage {
   id: number;
@@ -11,7 +12,7 @@ interface ChatMessage {
   created_at: string;
 }
 
-const getSessionId = () => {
+const getGuestSessionId = () => {
   let id = localStorage.getItem('chat_session_id');
   if (!id) {
     id = `sess_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -24,28 +25,54 @@ export default function LiveChat() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [name, setName] = useState(localStorage.getItem('chat_name') || '');
-  const [nameSet, setNameSet] = useState(!!localStorage.getItem('chat_name'));
+  
+  const [sessionId, setSessionId] = useState<string>('');
+  const [name, setName] = useState('');
+  const [nameSet, setNameSet] = useState(false);
+  
   const [sending, setSending] = useState(false);
   const [unread, setUnread] = useState(0);
 
-  const sessionId = getSessionId();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastCountRef = useRef(0);
 
+  // Determine if it's a logged-in client or a guest
+  useEffect(() => {
+    const initChat = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Logged in client
+        setSessionId(session.user.id);
+        setName(session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Client');
+        setNameSet(true);
+      } else {
+        // Guest
+        setSessionId(getGuestSessionId());
+        const savedName = localStorage.getItem('chat_name');
+        if (savedName) {
+          setName(savedName);
+          setNameSet(true);
+        }
+      }
+    };
+    initChat();
+  }, []);
+
   const fetchMessages = async () => {
+    if (!sessionId) return;
     try {
       const res = await api.get(`/chat/session/${sessionId}`);
       const data: ChatMessage[] = res.data.data;
       setMessages(data);
-      // Track new admin messages
+      
       if (!open) {
         const newAdminCount = data.filter(
           (m) => m.sender === 'admin' && new Date(m.created_at).getTime() > Date.now() - 60000
         ).length;
         setUnread(newAdminCount);
       }
-      // Scroll to bottom on new messages
+      
       if (data.length > lastCountRef.current) {
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         lastCountRef.current = data.length;
@@ -56,6 +83,7 @@ export default function LiveChat() {
   };
 
   useEffect(() => {
+    if (!sessionId) return;
     fetchMessages();
     const id = setInterval(fetchMessages, 5000);
     return () => clearInterval(id);
@@ -67,7 +95,7 @@ export default function LiveChat() {
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !nameSet) return;
+    if (!input.trim() || !nameSet || !sessionId) return;
     setSending(true);
 
     try {
@@ -92,9 +120,11 @@ export default function LiveChat() {
     setNameSet(true);
   };
 
+  // Hide the chat if we are still loading the session ID
+  if (!sessionId) return null;
+
   return (
     <>
-      {/* Chat button */}
       <button
         className="fab live-chat-btn"
         onClick={() => setOpen(!open)}
@@ -104,7 +134,6 @@ export default function LiveChat() {
         {unread > 0 && !open && <span className="chat-badge">{unread}</span>}
       </button>
 
-      {/* Chat window */}
       {open && (
         <div className="live-chat-window">
           <div className="live-chat-header">

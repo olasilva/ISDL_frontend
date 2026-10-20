@@ -1,5 +1,6 @@
 // src/sections/Hero.tsx
 import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom'; // Import Link
 
 export default function Hero() {
   const heroRef = useRef<HTMLElement>(null);
@@ -31,15 +32,11 @@ export default function Hero() {
 
   return (
     <section className="hero" ref={heroRef}>
-      {/* Parallax background layer */}
       <div className="hero-parallax" ref={bgRef} />
       <div className="hero-grid-overlay" aria-hidden="true" />
-
-      {/* Floating orbs */}
       <div className="hero-orb hero-orb-1" aria-hidden="true" />
       <div className="hero-orb hero-orb-2" aria-hidden="true" />
-
-      {/* Rising particles */}
+      
       <div className="hero-particles" aria-hidden="true">
         <span className="hero-particle" />
         <span className="hero-particle" />
@@ -51,7 +48,6 @@ export default function Hero() {
         <span className="hero-particle" />
       </div>
 
-      {/* Floating chips */}
       <div className="hero-chip hero-chip-1" aria-hidden="true">
         <i className="bx bx-code-alt" /> Clean code
       </div>
@@ -62,7 +58,6 @@ export default function Hero() {
         <i className="bx bx-shield-quarter" /> Secure by default
       </div>
 
-      {/* Content */}
       <div className="wrap">
         <div className="slide">
           <div className="eyebrow">
@@ -80,9 +75,11 @@ export default function Hero() {
             <a href="#work" className="btn">
               Discover more
             </a>
-            <a href="#contact" className="link">
+            
+            {/* CHANGED: Now routes to the signup page using React Router */}
+            <Link to="/signup" className="link">
               Get a quote
-            </a>
+            </Link>
           </div>
         </div>
       </div>

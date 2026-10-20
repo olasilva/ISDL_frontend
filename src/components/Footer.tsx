@@ -1,4 +1,5 @@
 // src/components/Footer.tsx
+import { Link } from 'react-router-dom';
 import { MAIL, PHONE, PHONE_DISPLAY } from '../data/content';
 import { openLegal } from '../lib/utils';
 
@@ -10,10 +11,10 @@ export default function Footer() {
       <div className="wrap">
         <div className="fgrid">
           <div>
-            <a href="#/" className="logo" style={{ marginBottom: 12 }}>
+            <Link to="/" className="logo" style={{ marginBottom: 12 }}>
               <b>ISDL</b>
               <small>Built Better</small>
-            </a>
+            </Link>
             <p style={{ marginTop: 12 }}>
               We design, build and maintain websites and web apps for businesses and individuals worldwide.
             </p>
@@ -54,6 +55,10 @@ export default function Footer() {
             >
               Terms of Service
             </a>
+            {/* NEW: Client Portal Link */}
+            <Link to="/login" style={{ fontWeight: 700, color: 'var(--yel)' }}>
+              Client Portal
+            </Link>
             <a href="/admin/login">Admin login</a>
           </div>
         </div>
