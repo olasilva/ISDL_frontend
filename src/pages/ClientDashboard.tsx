@@ -1,17 +1,22 @@
 // src/pages/ClientDashboard.tsx
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import api from '../lib/api';
-import { useNavigate } from 'react-router-dom';
 import LiveChat from '../components/LiveChat';
+
+
+/* -------------------------------------------------------------------------- */
+/*  Types                                                                     */
+/* -------------------------------------------------------------------------- */
 
 interface Project {
   id: number;
   project_name: string;
-  domain_name: string;
+  domain_name: string | null;
   status: string;
   progress: number;
-  amount_due: number;
+  amount_due: number | string;
   is_paid: boolean;
   payment_claimed: boolean;
 }
@@ -22,381 +27,998 @@ interface BankDetails {
   accountNumber: string;
 }
 
-export default function ClientDashboard() {
-  const [project, setProject] = useState<Project | null>(null);
-  const [bank, setBank] = useState<BankDetails | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState('');
-  const navigate = useNavigate();
+type Tab = 'overview' | 'billing' | 'requests';
+type LoadState = 'loading' | 'ready' | 'error';
+type ToastTone = 'success' | 'error' | 'info';
 
-  // Request Form State (Covers all 4 request types)
-  const [showRequestForm, setShowRequestForm] = useState(false);
-  const [requestType, setRequestType] = useState('New Website');
-  const [requestDetails, setRequestDetails] = useState('');
-  const [domainName, setDomainName] = useState('');
-  const [domainRegistrar, setDomainRegistrar] = useState('GoDaddy');
-  const [requestSending, setRequestSending] = useState(false);
-  const [requestSuccess, setRequestSuccess] = useState(false);
+interface Toast {
+  id: number;
+  tone: ToastTone;
+  text: string;
+}
 
-  // Payment Claim State
-  const [showClaimForm, setShowClaimForm] = useState(false);
-  const [reference, setReference] = useState('');
-  const [claiming, setClaiming] = useState(false);
+interface SentRequest {
+  id: number;
+  type: RequestType;
+  summary: string;
+  sentAt: Date;
+}
 
-  // Format current date
-  const today = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-  });
+type RequestType =
+  | 'New Website'
+  | 'Website Maintenance'
+  | 'Buy a Domain'
+  | 'Connect Existing Domain';
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return navigate('/login');
+/* -------------------------------------------------------------------------- */
+/*  Constants & helpers                                                       */
+/* -------------------------------------------------------------------------- */
 
-      const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Client';
-      setUserName(name);
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'overview', label: 'Overview', icon: 'bx-grid-alt' },
+  { id: 'billing', label: 'Billing', icon: 'bx-receipt' },
+  { id: 'requests', label: 'Requests', icon: 'bx-message-square-detail' },
+];
 
-      try {
-        const res = await api.get('/projects/my-project');
-        setProject(res.data.data);
-        setBank(res.data.bankDetails);
-      } catch (err) {
-        console.error('Error fetching project:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardData();
-  }, [navigate]);
+const STAGES = [
+  { label: 'Discovery and planning', min: 10, hint: 'Scope, sitemap and requirements are agreed.' },
+  { label: 'UI/UX design', min: 30, hint: 'Layouts and visual direction are prepared for your review.' },
+  { label: 'Development', min: 60, hint: 'Pages, features and integrations are built.' },
+  { label: 'Review and launch', min: 90, hint: 'Final checks, fixes and go-live.' },
+];
 
-  const handleClaimPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!project) return;
-    setClaiming(true);
-    
+const REQUEST_TYPES: { value: RequestType; label: string; hint: string; icon: string; placeholder: string }[] = [
+  {
+    value: 'New Website',
+    label: 'New website',
+    hint: 'Start a fresh build',
+    icon: 'bx-layout',
+    placeholder: 'Describe the website you want: who it is for, the pages you need, and any sites you like.',
+  },
+  {
+    value: 'Website Maintenance',
+    label: 'Maintenance',
+    hint: 'Fix or update your site',
+    icon: 'bx-wrench',
+    placeholder: 'What needs fixing or updating? Include the page and what you expected to see.',
+  },
+  {
+    value: 'Buy a Domain',
+    label: 'Buy a domain',
+    hint: 'We register it for you',
+    icon: 'bx-purchase-tag-alt',
+    placeholder: 'Anything we should know, such as alternative names you would accept?',
+  },
+  {
+    value: 'Connect Existing Domain',
+    label: 'Connect a domain',
+    hint: 'Point one you own',
+    icon: 'bx-link-alt',
+    placeholder: 'Anything we should know, such as where the DNS is managed?',
+  },
+];
+
+const REGISTRARS = ['GoDaddy', 'Namecheap', 'Google Domains', 'Cloudflare', 'Other'];
+
+const DOMAIN_PATTERN = /^(?!-)([a-z0-9-]{1,63}\.)+[a-z]{2,}$/i;
+
+const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+
+const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+const toNumber = (v: number | string | null | undefined) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const sentenceCase = (s: string) => {
+  const t = (s || '').replace(/[_-]+/g, ' ').trim().toLowerCase();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Pending';
+};
+
+const greeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+};
+
+const normaliseDomain = (raw: string) =>
+  raw.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+
+const httpStatus = (err: unknown): number | undefined =>
+  (err as { response?: { status?: number } })?.response?.status;
+
+const timeLabel = (d: Date) =>
+  d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+/* -------------------------------------------------------------------------- */
+/*  Small presentational pieces                                               */
+/* -------------------------------------------------------------------------- */
+
+function Skeleton({ w, h = 14, r = 6 }: { w: number | string; h?: number; r?: number }) {
+  return <span className="cd-skel" style={{ width: w, height: h, borderRadius: r }} aria-hidden="true" />;
+}
+
+function LoadingView() {
+  return (
+    <div className="cd-grid" role="status" aria-label="Loading your dashboard">
+      <section className="cd-panel cd-panel--lg">
+        <Skeleton w="48%" h={26} />
+        <div style={{ height: 10 }} />
+        <Skeleton w="30%" />
+        <div style={{ height: 36 }} />
+        <Skeleton w="22%" h={48} r={8} />
+        <div style={{ height: 18 }} />
+        <Skeleton w="100%" h={10} r={99} />
+        <div style={{ height: 36 }} />
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{ display: 'flex', gap: 14, marginBottom: 22 }}>
+            <Skeleton w={28} h={28} r={99} />
+            <div style={{ flex: 1 }}>
+              <Skeleton w="45%" />
+              <div style={{ height: 8 }} />
+              <Skeleton w="70%" h={11} />
+            </div>
+          </div>
+        ))}
+      </section>
+      <aside className="cd-stack">
+        <section className="cd-panel">
+          <Skeleton w="40%" h={18} />
+          <div style={{ height: 14 }} />
+          <Skeleton w="90%" />
+          <div style={{ height: 8 }} />
+          <Skeleton w="70%" />
+          <div style={{ height: 22 }} />
+          <Skeleton w="100%" h={40} r={10} />
+        </section>
+      </aside>
+    </div>
+  );
+}
+
+function CopyButton({ value, label, onResult }: { value: string; label: string; onResult: (ok: boolean, label: string) => void }) {
+  const copy = async () => {
     try {
-      await api.post('/projects/claim-payment', { 
-        project_id: project.id, 
-        payment_reference: reference 
-      });
-      setProject({ ...project, payment_claimed: true });
-      setShowClaimForm(false);
-    } catch (err) {
-      alert('Failed to submit claim. Please contact support.');
-    } finally {
-      setClaiming(false);
+      await navigator.clipboard.writeText(value);
+      onResult(true, label);
+    } catch {
+      onResult(false, label);
     }
   };
+  return (
+    <button type="button" className="cd-copy" onClick={copy} aria-label={`Copy ${label}`}>
+      <i className="bx bx-copy" aria-hidden="true" />
+    </button>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Main component                                                            */
+/* -------------------------------------------------------------------------- */
+
+export default function ClientDashboard() {
+  const navigate = useNavigate();
+
+  /* ---- data ---- */
+  const [project, setProject] = useState<Project | null>(null);
+  const [bank, setBank] = useState<BankDetails | null>(null);
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+  const [state, setState] = useState<LoadState>('loading');
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  /* ---- ui ---- */
+  const [tab, setTab] = useState<Tab>(() => {
+    const h = window.location.hash.replace('#', '') as Tab;
+    return TABS.some(t => t.id === h) ? h : 'overview';
+  });
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastId = useRef(0);
+  const mounted = useRef(true);
+
+  /* ---- request modal ---- */
+  const [modalOpen, setModalOpen] = useState(false);
+  const [requestType, setRequestType] = useState<RequestType>('New Website');
+  const [requestDetails, setRequestDetails] = useState('');
+  const [domainName, setDomainName] = useState('');
+  const [domainRegistrar, setDomainRegistrar] = useState(REGISTRARS[0]);
+  const [requestSending, setRequestSending] = useState(false);
+  const [requestError, setRequestError] = useState('');
+  const [sentRequests, setSentRequests] = useState<SentRequest[]>([]);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const lastFocused = useRef<HTMLElement | null>(null);
+
+  /* ---- payment claim ---- */
+  const [reference, setReference] = useState('');
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState('');
+
+  /* ------------------------------------------------------------------ */
+  /*  Toasts                                                            */
+  /* ------------------------------------------------------------------ */
+
+  const pushToast = useCallback((tone: ToastTone, text: string) => {
+    const id = ++toastId.current;
+    setToasts(t => [...t, { id, tone, text }]);
+    window.setTimeout(() => {
+      if (mounted.current) setToasts(t => t.filter(x => x.id !== id));
+    }, 4500);
+  }, []);
+
+  const onCopied = useCallback(
+    (ok: boolean, label: string) =>
+      ok ? pushToast('success', `${label} copied`) : pushToast('error', `Could not copy ${label.toLowerCase()}`),
+    [pushToast],
+  );
+
+  /* ------------------------------------------------------------------ */
+  /*  Data loading                                                      */
+  /* ------------------------------------------------------------------ */
+
+  const load = useCallback(
+    async (silent = false) => {
+      if (silent) setRefreshing(true);
+      else setState('loading');
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        const meta = session.user.user_metadata as { full_name?: string } | undefined;
+        setUserName(meta?.full_name || session.user.email?.split('@')[0] || 'Client');
+        setUserEmail(session.user.email ?? '');
+
+        try {
+          const res = await api.get('/projects/my-project');
+          if (!mounted.current) return;
+          setProject(res.data?.data ?? null);
+          setBank(res.data?.bankDetails ?? null);
+          setLastUpdated(new Date());
+          setState('ready');
+        } catch (err) {
+          if (!mounted.current) return;
+          if (httpStatus(err) === 404) {
+            // A client without a project is a valid state, not a failure.
+            setProject(null);
+            setState('ready');
+          } else if (silent) {
+            pushToast('error', 'Could not refresh. Showing the last saved view.');
+          } else {
+            console.error('Error fetching project:', err);
+            setState('error');
+          }
+        }
+      } finally {
+        if (mounted.current) setRefreshing(false);
+      }
+    },
+    [navigate, pushToast],
+  );
+
+  useEffect(() => {
+    mounted.current = true;
+    load();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(event => {
+      if (event === 'SIGNED_OUT') navigate('/login', { replace: true });
+    });
+
+    return () => {
+      mounted.current = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [load, navigate]);
+
+  useEffect(() => {
+    document.title = 'Dashboard | ISDL Studio';
+  }, []);
+
+  useEffect(() => {
+    window.history.replaceState(null, '', `#${tab}`);
+  }, [tab]);
+
+  /* ------------------------------------------------------------------ */
+  /*  Derived values                                                    */
+  /* ------------------------------------------------------------------ */
+
+  const progress = clamp(toNumber(project?.progress), 0, 100);
+  const amountDue = toNumber(project?.amount_due);
+  const isComplete = project?.status === 'completed';
+
+  const stageIndex = useMemo(() => {
+    const firstOpen = STAGES.findIndex(s => progress < s.min);
+    return firstOpen === -1 ? STAGES.length : firstOpen;
+  }, [progress]);
+
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const paymentState: 'paid' | 'verifying' | 'due' | 'none' = !project
+    ? 'none'
+    : project.is_paid
+    ? 'paid'
+    : project.payment_claimed
+    ? 'verifying'
+    : amountDue > 0
+    ? 'due'
+    : 'none';
+
+  /* ------------------------------------------------------------------ */
+  /*  Request modal                                                     */
+  /* ------------------------------------------------------------------ */
+
+  const openRequest = useCallback((type?: RequestType) => {
+    lastFocused.current = document.activeElement as HTMLElement | null;
+    if (type) setRequestType(type);
+    setRequestError('');
+    setModalOpen(true);
+  }, []);
+
+  const closeRequest = useCallback(() => {
+    setModalOpen(false);
+    lastFocused.current?.focus?.();
+  }, []);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const focusables = () =>
+      Array.from(
+        modalRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select, textarea, [href]',
+        ) ?? [],
+      );
+    focusables()[0]?.focus();
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeRequest();
+      if (e.key === 'Tab') {
+        const items = focusables();
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [modalOpen, closeRequest]);
+
+  const needsDomain = requestType === 'Buy a Domain' || requestType === 'Connect Existing Domain';
+  const activeType = REQUEST_TYPES.find(t => t.value === requestType)!;
 
   const handleServiceRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    setRequestSending(true);
-    
-    // Build the message based on the selected request type
-    let messageBody = `--- NEW REQUEST: ${requestType} ---\n\n`;
-    
-    if (requestType === 'Buy a Domain') {
-      messageBody += `Desired Domain: ${domainName}\n`;
-    } else if (requestType === 'Connect Existing Domain') {
-      messageBody += `Domain Name: ${domainName}\nRegistrar: ${domainRegistrar}\n`;
-    }
-    
-    messageBody += `\nDetails:\n${requestDetails}`;
+    setRequestError('');
 
+    const details = requestDetails.trim();
+    const domain = normaliseDomain(domainName);
+
+    if (needsDomain && !DOMAIN_PATTERN.test(domain)) {
+      setRequestError('Enter a valid domain, for example mybusiness.com.');
+      return;
+    }
+    if (details.length < 10) {
+      setRequestError('Add a little more detail so we can act on this without a follow-up.');
+      return;
+    }
+
+    let body = `--- NEW REQUEST: ${requestType} ---\n\n`;
+    if (requestType === 'Buy a Domain') body += `Desired Domain: ${domain}\n`;
+    if (requestType === 'Connect Existing Domain') body += `Domain Name: ${domain}\nRegistrar: ${domainRegistrar}\n`;
+    body += `\nDetails:\n${details}`;
+
+    setRequestSending(true);
     try {
-      await api.post('/inbox', {
-        name: userName,
-        email: (await supabase.auth.getUser()).data.user?.email,
-        message: messageBody
-      });
-      setRequestSuccess(true);
-      setShowRequestForm(false);
+      await api.post('/inbox', { name: userName, email: userEmail, message: body });
+      setSentRequests(list => [
+        { id: Date.now(), type: requestType, summary: needsDomain ? domain : details.slice(0, 90), sentAt: new Date() },
+        ...list,
+      ]);
       setRequestDetails('');
       setDomainName('');
+      closeRequest();
+      setTab('requests');
+      pushToast('success', 'Request sent. We will reply by email or chat.');
     } catch (err) {
-      alert('Failed to send request. Please try the live chat.');
+      console.error('Service request failed:', err);
+      setRequestError('The request did not go through. Try again, or message us in the live chat.');
     } finally {
       setRequestSending(false);
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+  /* ------------------------------------------------------------------ */
+  /*  Payment claim                                                     */
+  /* ------------------------------------------------------------------ */
+
+  const handleClaimPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!project) return;
+
+    const ref = reference.trim();
+    if (ref.length < 4) {
+      setClaimError('Enter the reference shown on your transfer receipt.');
+      return;
+    }
+
+    setClaimError('');
+    setClaiming(true);
+    try {
+      await api.post('/projects/claim-payment', { project_id: project.id, payment_reference: ref });
+      setProject({ ...project, payment_claimed: true });
+      setReference('');
+      pushToast('success', 'Thanks. We are verifying your transfer.');
+    } catch (err) {
+      console.error('Claim failed:', err);
+      setClaimError('We could not record your payment. Try again, or tell us in the live chat.');
+    } finally {
+      setClaiming(false);
+    }
   };
 
-  if (loading) return <div className="spinner" style={{ marginTop: '20vh' }} />;
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login', { replace: true });
+  };
 
-  return (
-    <div className="admin-shell">
-      {/* --- POLISHED HEADER WITH DATE & ACTION BUTTON --- */}
-      <header className="admin-topbar" style={{ 
-        background: 'rgba(10, 27, 51, 0.95)', 
-        backdropFilter: 'blur(12px)', 
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50
-      }}>
-        <div className="wrap">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div className="admin-brand-mark" style={{ fontSize: '1.2rem', borderRadius: 12 }}>IS</div>
-            <div style={{ lineHeight: 1.2 }}>
-              <b style={{ display: 'block', fontSize: '1.1rem', letterSpacing: '-0.02em' }}>ISDL Studio</b>
-              <div style={{ fontSize: '0.75rem', color: '#8fa8d1', fontWeight: 600 }}>
-                {today}
-              </div>
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {/* New Request Button */}
-            <button 
-              onClick={() => { setShowRequestForm(true); setRequestSuccess(false); }}
-              className="btn-icon primary" 
-              style={{ padding: '8px 16px', fontSize: '0.8rem' }}
-            >
-              <i className="bx bx-plus" /> New Request
+  /* ------------------------------------------------------------------ */
+  /*  Sections                                                          */
+  /* ------------------------------------------------------------------ */
+
+  const nextStep = (() => {
+    if (!project) return null;
+    if (paymentState === 'due')
+      return {
+        tone: 'warn' as const,
+        title: `${currency.format(amountDue)} is due`,
+        body: 'Pay by bank transfer, then enter your reference so we can match it.',
+        action: { label: 'Go to billing', run: () => setTab('billing') },
+      };
+    if (paymentState === 'verifying')
+      return {
+        tone: 'info' as const,
+        title: 'Transfer under verification',
+        body: 'We have your reference. This page updates once the payment is confirmed.',
+        action: null,
+      };
+    if (isComplete)
+      return {
+        tone: 'ok' as const,
+        title: 'Your project is complete',
+        body: 'Need a change after launch? Send a maintenance request and we will pick it up.',
+        action: { label: 'Request maintenance', run: () => openRequest('Website Maintenance') },
+      };
+    const stage = STAGES[Math.min(stageIndex, STAGES.length - 1)];
+    return {
+      tone: 'info' as const,
+      title: `Now: ${stage.label}`,
+      body: stage.hint,
+      action: null,
+    };
+  })();
+
+  const renderOverview = () => {
+    if (!project) {
+      return (
+        <div className="cd-grid">
+          <section className="cd-panel cd-panel--lg cd-empty">
+            <i className="bx bx-folder-open cd-empty__icon" aria-hidden="true" />
+            <h2>No active project yet</h2>
+            <p>
+              Tell us what you need and we will set up your project here, with progress, billing and updates in one place.
+            </p>
+            <button className="cd-btn cd-btn--primary" onClick={() => openRequest('New Website')}>
+              Start a project request
             </button>
-
-            <div className="admin-avatar" style={{ width: 38, height: 38, fontSize: '1rem', background: 'linear-gradient(135deg, #2a5fa8, #0a1b33)' }}>
-              {userName.substring(0, 1).toUpperCase()}
-            </div>
-            
-            <button 
-              onClick={handleLogout} 
-              className="btn-icon" 
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '8px 16px' }}
-            >
-              <i className="bx bx-log-out" /> <span className="hide-sm">Logout</span>
-            </button>
-          </div>
+          </section>
+          <aside className="cd-stack">
+            <section className="cd-panel cd-panel--ink">
+              <h3>Questions first?</h3>
+              <p>Use the chat bubble at the bottom right. Messages go straight to our team.</p>
+            </section>
+          </aside>
         </div>
-      </header>
+      );
+    }
 
-      {/* --- PAGE CONTENT --- */}
-      <div className="admin-content" style={{ paddingTop: 40 }}>
-        
-        <div style={{ marginBottom: 40 }}>
-          <h1 style={{ fontSize: '2.2rem', letterSpacing: '-0.03em', marginBottom: 6 }}>
-            Welcome back, <span style={{ color: 'var(--navy)' }}>{userName}</span> 👋
-          </h1>
-          <p className="muted" style={{ fontSize: '1rem' }}>
-            {project ? 'Here is the latest update on your project.' : 'Ready to start your next big project?'}
-          </p>
-        </div>
-
-        {!project ? (
-          /* --- STATE 1: NO PROJECT YET --- */
-          <div className="grid" style={{ gridTemplateColumns: '1fr 340px' }}>
-            <div className="modern-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '60px 20px', border: '2px dashed var(--line)', background: 'transparent', boxShadow: 'none' }}>
-              <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--soft)', display: 'grid', placeItems: 'center', marginBottom: 20 }}>
-                <i className="bx bx-rocket" style={{ fontSize: '2.5rem', color: 'var(--navy)' }} />
-              </div>
-              <h2 style={{ marginBottom: 10 }}>Let's build something great</h2>
-              <p className="muted" style={{ maxWidth: 400, marginBottom: 30 }}>
-                You don't have an active project yet. Use the "New Request" button above to get started.
-              </p>
-              <button className="btn" onClick={() => setShowRequestForm(true)} style={{ padding: '14px 28px', fontSize: '0.9rem' }}>
-                Make a Request
-              </button>
-            </div>
-            
-            <div className="modern-card" style={{ background: 'var(--navy)', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <i className="bx bx-chat" style={{ fontSize: '2.5rem', marginBottom: 16, color: '#8fa8d1' }} />
-              <h3 style={{ color: '#fff', fontSize: '1.3rem', marginBottom: 8 }}>Have questions?</h3>
-              <p style={{ fontSize: '0.9rem', color: '#9fb0cc', lineHeight: 1.6 }}>Use the chat bubble in the bottom right corner to message us directly. We usually reply within minutes.</p>
-            </div>
-          </div>
-        ) : (
-          /* --- STATE 2: ACTIVE PROJECT --- */
-          <div className="grid" style={{ gridTemplateColumns: '1fr 340px' }}>
-            
-            {/* Left Column: Project Tracker */}
-            <div className="modern-card" style={{ padding: 32 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 30 }}>
-                <div>
-                  <h2 style={{ marginBottom: 6, fontSize: '1.6rem' }}>{project.project_name}</h2>
-                  <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <i className="bx bx-globe" /> {project.domain_name || 'Domain pending connection'}
-                  </p>
-                </div>
-                <span className={`badge ${project.status === 'completed' ? 'badge-approved' : 'badge-pending'}`} style={{ fontSize: '0.75rem', padding: '8px 14px' }}>
-                  {project.status.toUpperCase()}
-                </span>
-              </div>
-              
-              {/* Progress Bar */}
-              <div style={{ marginBottom: 40, background: 'var(--soft)', padding: 24, borderRadius: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontWeight: 700, fontSize: '0.9rem' }}>
-                  <span>Build Progress</span>
-                  <span>{project.progress}%</span>
-                </div>
-                <div className="progress-bar-bg" style={{ height: 16, background: 'var(--line)' }}>
-                  <div className="progress-bar-fill" style={{ width: `${project.progress}%`, background: 'linear-gradient(90deg, #2a5fa8, #0a1b33)' }} />
-                </div>
-              </div>
-
-              {/* Milestones */}
-              <h3 style={{ fontSize: '1.1rem', marginBottom: 20 }}>Project Timeline</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                {[
-                  { label: 'Discovery & Planning', min: 10 },
-                  { label: 'UI/UX Design', min: 30 },
-                  { label: 'Development', min: 60 },
-                  { label: 'Review & Launch', min: 90 },
-                ].map(step => (
-                  <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 12, opacity: project.progress >= step.min ? 1 : 0.4 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: project.progress >= step.min ? 'var(--check)' : 'var(--line)', color: '#fff', display: 'grid', placeItems: 'center', fontSize: '0.9rem' }}>
-                      {project.progress >= step.min ? <i className="bx bx-check" /> : <i className="bx bx-time" />}
-                    </div>
-                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{step.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right Column: Billing & Actions */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              
-              {/* Billing Card */}
-              <div className="modern-card" style={{ padding: 28 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                  <h3 style={{ fontSize: '1.1rem' }}>Billing</h3>
-                  <i className="bx bx-receipt" style={{ fontSize: '1.5rem', color: 'var(--muted)' }} />
-                </div>
-                <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 4 }}>Amount Due</p>
-                <div style={{ fontSize: '2.4rem', fontWeight: 800, marginBottom: 24, letterSpacing: '-0.03em' }}>
-                  ${project.amount_due.toFixed(2)}
-                </div>
-
-                {project.is_paid ? (
-                  <div className="badge badge-approved" style={{ padding: '12px 16px', width: '100%', justifyContent: 'center', fontSize: '0.85rem' }}>
-                    <i className="bx bx-check-circle" /> Paid in Full
-                  </div>
-                ) : project.payment_claimed ? (
-                  <div className="badge badge-pending" style={{ padding: '12px 16px', width: '100%', justifyContent: 'center', fontSize: '0.85rem' }}>
-                    <i className="bx bx-time" /> Verifying Transfer
-                  </div>
-                ) : !showClaimForm ? (
-                  <button className="btn" onClick={() => setShowClaimForm(true)} style={{ width: '100%', padding: '12px' }}>
-                    Pay via Bank Transfer
-                  </button>
+    return (
+      <div className="cd-grid">
+        <section className="cd-panel cd-panel--lg" aria-labelledby="cd-project-title">
+          <div className="cd-project__head">
+            <div>
+              <h2 id="cd-project-title" className="cd-project__name">
+                {project.project_name}
+              </h2>
+              <p className="cd-project__domain">
+                <i className="bx bx-globe" aria-hidden="true" />
+                {project.domain_name ? (
+                  <a href={`https://${project.domain_name}`} target="_blank" rel="noopener noreferrer">
+                    {project.domain_name}
+                  </a>
                 ) : (
-                  <div style={{ background: 'var(--soft)', padding: 20, borderRadius: 12 }}>
-                    <h4 style={{ marginBottom: 12, fontSize: '0.95rem' }}>Bank Transfer Details</h4>
-                    <div style={{ fontSize: '0.85rem', marginBottom: 16, lineHeight: 1.8 }}>
-                      <div><span className="muted">Bank:</span> <b>{bank?.bankName}</b></div>
-                      <div><span className="muted">Name:</span> <b>{bank?.accountName}</b></div>
-                      <div><span className="muted">Acct:</span> <b>{bank?.accountNumber}</b></div>
-                    </div>
-                    
-                    <form onSubmit={handleClaimPayment}>
-                      <div className="field">
-                        <label style={{ fontSize: '0.75rem' }}>Transfer Reference</label>
-                        <input required value={reference} onChange={e => setReference(e.target.value)} placeholder="e.g. TRX-12345" style={{ fontSize: '0.9rem', padding: '10px' }} />
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button type="button" className="btn-icon" onClick={() => setShowClaimForm(false)} style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
-                        <button type="submit" className="btn-icon primary" disabled={claiming} style={{ flex: 2, justifyContent: 'center' }}>
-                          {claiming ? 'Sending...' : 'I have paid'}
-                        </button>
-                      </div>
-                    </form>
+                  <span>Domain not connected yet</span>
+                )}
+              </p>
+            </div>
+            <span className={`cd-pill ${isComplete ? 'cd-pill--ok' : 'cd-pill--info'}`}>{sentenceCase(project.status)}</span>
+          </div>
+
+          <div className="cd-progress">
+            <div className="cd-progress__figure">
+              <span className="cd-progress__num">{progress}</span>
+              <span className="cd-progress__unit">%</span>
+              <span className="cd-progress__cap">complete</span>
+            </div>
+            <div
+              className="cd-bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress}
+              aria-label="Build progress"
+            >
+              <div className="cd-bar__fill" style={{ width: `${progress}%` }} />
+              {STAGES.map(s => (
+                <span key={s.label} className="cd-bar__tick" style={{ left: `${s.min}%` }} aria-hidden="true" />
+              ))}
+            </div>
+          </div>
+
+          <h3 className="cd-section-title">Project timeline</h3>
+          <ol className="cd-stages">
+            {STAGES.map((s, i) => {
+              const done = progress >= s.min;
+              const current = i === stageIndex && !isComplete;
+              return (
+                <li
+                  key={s.label}
+                  className={`cd-stage ${done ? 'is-done' : ''} ${current ? 'is-current' : ''}`}
+                  aria-current={current ? 'step' : undefined}
+                >
+                  <span className="cd-stage__node" aria-hidden="true">
+                    {done ? <i className="bx bx-check" /> : null}
+                  </span>
+                  <div className="cd-stage__body">
+                    <b>
+                      {s.label}
+                      {current && <span className="cd-stage__tag">In progress</span>}
+                    </b>
+                    <span>{s.hint}</span>
                   </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <aside className="cd-stack">
+          {nextStep && (
+            <section className={`cd-panel cd-next cd-next--${nextStep.tone}`}>
+              <h3>{nextStep.title}</h3>
+              <p>{nextStep.body}</p>
+              {nextStep.action && (
+                <button className="cd-btn cd-btn--primary" onClick={nextStep.action.run}>
+                  {nextStep.action.label}
+                </button>
+              )}
+            </section>
+          )}
+
+          <section className="cd-panel">
+            <h3>Need something else?</h3>
+            <p className="cd-muted">Domains, maintenance or a new build. Pick one and we will take it from there.</p>
+            <div className="cd-quick">
+              {REQUEST_TYPES.map(t => (
+                <button key={t.value} className="cd-quick__item" onClick={() => openRequest(t.value)}>
+                  <i className={`bx ${t.icon}`} aria-hidden="true" />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+    );
+  };
+
+  const renderBilling = () => {
+    if (!project) {
+      return (
+        <section className="cd-panel cd-empty">
+          <i className="bx bx-receipt cd-empty__icon" aria-hidden="true" />
+          <h2>Nothing to pay yet</h2>
+          <p>Billing appears here once your project is set up.</p>
+        </section>
+      );
+    }
+
+    return (
+      <div className="cd-grid cd-grid--billing">
+        <section className="cd-panel" aria-labelledby="cd-bill-title">
+          <h2 id="cd-bill-title" className="cd-section-title">
+            Amount due
+          </h2>
+          <div className="cd-amount">{currency.format(amountDue)}</div>
+          <p className="cd-muted">{project.project_name}</p>
+
+          <div className={`cd-status cd-status--${paymentState}`}>
+            {paymentState === 'paid' && (
+              <>
+                <i className="bx bx-check-circle" aria-hidden="true" /> Paid in full
+              </>
+            )}
+            {paymentState === 'verifying' && (
+              <>
+                <i className="bx bx-time-five" aria-hidden="true" /> Verifying your transfer
+              </>
+            )}
+            {paymentState === 'due' && (
+              <>
+                <i className="bx bx-error-circle" aria-hidden="true" /> Awaiting payment
+              </>
+            )}
+            {paymentState === 'none' && (
+              <>
+                <i className="bx bx-minus-circle" aria-hidden="true" /> No balance
+              </>
+            )}
+          </div>
+        </section>
+
+        {paymentState === 'due' ? (
+          <section className="cd-panel" aria-labelledby="cd-transfer-title">
+            <h2 id="cd-transfer-title" className="cd-section-title">
+              Pay by bank transfer
+            </h2>
+
+            <div className="cd-stepline">
+              <span className="cd-stepline__n">1</span>
+              <div>
+                <b>Transfer {currency.format(amountDue)}</b>
+                {bank ? (
+                  <dl className="cd-bank">
+                    <div>
+                      <dt>Bank</dt>
+                      <dd>{bank.bankName}</dd>
+                    </div>
+                    <div>
+                      <dt>Account name</dt>
+                      <dd>{bank.accountName}</dd>
+                    </div>
+                    <div>
+                      <dt>Account number</dt>
+                      <dd className="cd-bank__num">
+                        {bank.accountNumber}
+                        <CopyButton value={bank.accountNumber} label="Account number" onResult={onCopied} />
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="cd-muted">
+                    Bank details are not available right now. Ask us in the live chat and we will send them.
+                  </p>
                 )}
               </div>
-
-              {/* Support Card */}
-              <div className="modern-card" style={{ background: 'var(--navy)', color: '#fff', padding: '28px' }}>
-                <i className="bx bx-support" style={{ fontSize: '2.2rem', marginBottom: 16, color: '#8fa8d1' }} />
-                <h3 style={{ color: '#fff', fontSize: '1.2rem', marginBottom: 8 }}>Need updates?</h3>
-                <p style={{ fontSize: '0.85rem', color: '#9fb0cc', lineHeight: 1.6 }}>Use the chat bubble in the bottom right to message us directly.</p>
-              </div>
             </div>
-          </div>
+
+            <form className="cd-stepline" onSubmit={handleClaimPayment} noValidate>
+              <span className="cd-stepline__n">2</span>
+              <div style={{ flex: 1 }}>
+                <b>Confirm your payment</b>
+                <label className="cd-field" htmlFor="cd-ref">
+                  <span>Transfer reference</span>
+                  <input
+                    id="cd-ref"
+                    value={reference}
+                    onChange={e => setReference(e.target.value)}
+                    placeholder="e.g. TRX-12345"
+                    autoComplete="off"
+                    aria-invalid={!!claimError}
+                    aria-describedby={claimError ? 'cd-ref-err' : undefined}
+                  />
+                </label>
+                {claimError && (
+                  <p id="cd-ref-err" className="cd-error" role="alert">
+                    {claimError}
+                  </p>
+                )}
+                <button className="cd-btn cd-btn--primary" type="submit" disabled={claiming}>
+                  {claiming ? 'Sending…' : 'I have paid'}
+                </button>
+              </div>
+            </form>
+          </section>
+        ) : (
+          <section className="cd-panel cd-panel--quiet">
+            <h2 className="cd-section-title">
+              {paymentState === 'paid' ? 'Payment received' : paymentState === 'verifying' ? 'We have your reference' : 'No action needed'}
+            </h2>
+            <p className="cd-muted">
+              {paymentState === 'paid'
+                ? 'Thank you. There is nothing further to pay on this project.'
+                : paymentState === 'verifying'
+                ? 'Our team is matching your transfer to this invoice. The status here updates once it is confirmed.'
+                : 'There is no outstanding balance on this project.'}
+            </p>
+          </section>
         )}
       </div>
+    );
+  };
 
-      {/* --- COMPREHENSIVE REQUEST MODAL --- */}
-      {showRequestForm && (
-        <div className="modal" onClick={() => setShowRequestForm(false)}>
-          <div className="box" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
-            <h2 style={{ marginBottom: 20 }}>Make a Request</h2>
-            
-            {requestSuccess ? (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <i className="bx bx-check-circle" style={{ fontSize: '3.5rem', color: 'var(--check)', marginBottom: 16 }} />
-                <h3>Request Sent!</h3>
-                <p className="muted" style={{ marginBottom: 24 }}>We have received your request and will reply via email or chat shortly.</p>
-                <button className="btn" onClick={() => { setRequestSuccess(false); setShowRequestForm(false); }}>Close</button>
-              </div>
-            ) : (
-              <form onSubmit={handleServiceRequest}>
-                <div className="field">
-                  <label>What do you need?</label>
-                  <select value={requestType} onChange={e => setRequestType(e.target.value)}>
-                    <option value="New Website">Build a New Website</option>
-                    <option value="Website Maintenance">Website Maintenance</option>
-                    <option value="Buy a Domain">Buy a Domain for me</option>
-                    <option value="Connect Existing Domain">Connect an Existing Domain</option>
-                  </select>
+  const renderRequests = () => (
+    <div className="cd-grid">
+      <section className="cd-panel cd-panel--lg">
+        <div className="cd-row">
+          <h2 className="cd-section-title" style={{ margin: 0 }}>
+            Sent this session
+          </h2>
+          <button className="cd-btn cd-btn--primary" onClick={() => openRequest()}>
+            <i className="bx bx-plus" aria-hidden="true" /> New request
+          </button>
+        </div>
+
+        {sentRequests.length === 0 ? (
+          <div className="cd-empty cd-empty--inline">
+            <p>
+              Requests you send appear here while this page is open. Our replies come by email or in the live chat.
+            </p>
+          </div>
+        ) : (
+          <ul className="cd-list">
+            {sentRequests.map(r => (
+              <li key={r.id}>
+                <div>
+                  <b>{r.type}</b>
+                  <span>{r.summary}</span>
                 </div>
+                <time dateTime={r.sentAt.toISOString()}>{timeLabel(r.sentAt)}</time>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-                {/* Conditional Fields based on Request Type */}
-                {requestType === 'Buy a Domain' && (
-                  <div className="field">
-                    <label>Desired Domain Name</label>
-                    <input required value={domainName} onChange={e => setDomainName(e.target.value)} placeholder="e.g. mybusiness.com" />
-                  </div>
-                )}
+      <aside className="cd-stack">
+        <section className="cd-panel">
+          <h3>What we can do</h3>
+          <div className="cd-quick cd-quick--col">
+            {REQUEST_TYPES.map(t => (
+              <button key={t.value} className="cd-quick__item cd-quick__item--wide" onClick={() => openRequest(t.value)}>
+                <i className={`bx ${t.icon}`} aria-hidden="true" />
+                <span>
+                  <b>{t.label}</b>
+                  <small>{t.hint}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+        <section className="cd-panel cd-panel--ink">
+          <h3>Prefer to talk?</h3>
+          <p>The chat bubble at the bottom right reaches our team directly.</p>
+        </section>
+      </aside>
+    </div>
+  );
 
-                {requestType === 'Connect Existing Domain' && (
-                  <>
-                    <div className="field">
-                      <label>Domain Name</label>
-                      <input required value={domainName} onChange={e => setDomainName(e.target.value)} placeholder="e.g. mybusiness.com" />
-                    </div>
-                    <div className="field">
-                      <label>Where did you buy it?</label>
-                      <select value={domainRegistrar} onChange={e => setDomainRegistrar(e.target.value)}>
-                        <option>GoDaddy</option>
-                        <option>Namecheap</option>
-                        <option>Google Domains</option>
-                        <option>Cloudflare</option>
-                        <option>Other</option>
+  /* ------------------------------------------------------------------ */
+  /*  Render                                                            */
+  /* ------------------------------------------------------------------ */
+
+  return (
+    <div className="cd-root">
+      <a href="#cd-main" className="cd-skip">
+        Skip to content
+      </a>
+
+      <aside className="cd-rail">
+        <div className="cd-brand">
+          <span className="cd-brand__mark">IS</span>
+          <span className="cd-brand__name">ISDL Studio</span>
+        </div>
+
+        <nav className="cd-nav" aria-label="Dashboard sections">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              className={`cd-nav__item ${tab === t.id ? 'is-active' : ''}`}
+              onClick={() => setTab(t.id)}
+              aria-current={tab === t.id ? 'page' : undefined}
+            >
+              <i className={`bx ${t.icon}`} aria-hidden="true" />
+              <span>{t.label}</span>
+              {t.id === 'billing' && paymentState === 'due' && <span className="cd-dot" aria-label="Payment due" />}
+            </button>
+          ))}
+        </nav>
+
+        <div className="cd-user">
+          <span className="cd-user__avatar" aria-hidden="true">
+            {userName.charAt(0).toUpperCase() || '?'}
+          </span>
+          <div className="cd-user__meta">
+            <b>{userName}</b>
+            <span>{userEmail}</span>
+          </div>
+          <button className="cd-iconbtn" onClick={handleLogout} aria-label="Log out" title="Log out">
+            <i className="bx bx-log-out" aria-hidden="true" />
+          </button>
+        </div>
+      </aside>
+
+      <main id="cd-main" className="cd-main">
+        <header className="cd-top">
+          <div>
+            <h1>
+              {greeting()}, {userName || 'there'}
+            </h1>
+            <p>
+              {today}
+              {lastUpdated && <span className="cd-top__sync"> · Updated {timeLabel(lastUpdated)}</span>}
+            </p>
+          </div>
+          <div className="cd-top__actions">
+            <button
+              className="cd-btn cd-btn--ghost"
+              onClick={() => load(true)}
+              disabled={refreshing || state === 'loading'}
+              aria-label="Refresh dashboard"
+            >
+              <i className={`bx bx-refresh ${refreshing ? 'is-spinning' : ''}`} aria-hidden="true" />
+              <span className="cd-hide-sm">Refresh</span>
+            </button>
+            <button className="cd-btn cd-btn--primary" onClick={() => openRequest()}>
+              <i className="bx bx-plus" aria-hidden="true" /> <span>New request</span>
+            </button>
+          </div>
+        </header>
+
+        {state === 'loading' && <LoadingView />}
+
+        {state === 'error' && (
+          <section className="cd-panel cd-empty" role="alert">
+            <i className="bx bx-wifi-off cd-empty__icon" aria-hidden="true" />
+            <h2>We could not load your dashboard</h2>
+            <p>This is usually a connection problem. Your data is safe. Check your connection and try again.</p>
+            <button className="cd-btn cd-btn--primary" onClick={() => load()}>
+              Try again
+            </button>
+          </section>
+        )}
+
+        {state === 'ready' && (
+          <>
+            {tab === 'overview' && renderOverview()}
+            {tab === 'billing' && renderBilling()}
+            {tab === 'requests' && renderRequests()}
+          </>
+        )}
+      </main>
+
+      {/* ---------- Request dialog ---------- */}
+      {modalOpen && (
+        <div className="cd-overlay" onMouseDown={e => e.target === e.currentTarget && closeRequest()}>
+          <div className="cd-dialog" role="dialog" aria-modal="true" aria-labelledby="cd-dialog-title" ref={modalRef}>
+            <div className="cd-dialog__head">
+              <h2 id="cd-dialog-title">New request</h2>
+              <button className="cd-iconbtn" onClick={closeRequest} aria-label="Close dialog">
+                <i className="bx bx-x" aria-hidden="true" />
+              </button>
+            </div>
+
+            <form onSubmit={handleServiceRequest} noValidate>
+              <fieldset className="cd-types">
+                <legend>What do you need?</legend>
+                {REQUEST_TYPES.map(t => (
+                  <label key={t.value} className={`cd-type ${requestType === t.value ? 'is-selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="request-type"
+                      value={t.value}
+                      checked={requestType === t.value}
+                      onChange={() => {
+                        setRequestType(t.value);
+                        setRequestError('');
+                      }}
+                    />
+                    <i className={`bx ${t.icon}`} aria-hidden="true" />
+                    <span>
+                      <b>{t.label}</b>
+                      <small>{t.hint}</small>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+
+              {needsDomain && (
+                <div className="cd-fields">
+                  <label className="cd-field" htmlFor="cd-domain">
+                    <span>{requestType === 'Buy a Domain' ? 'Domain you want' : 'Your domain'}</span>
+                    <input
+                      id="cd-domain"
+                      value={domainName}
+                      onChange={e => setDomainName(e.target.value)}
+                      placeholder="mybusiness.com"
+                      autoComplete="off"
+                      inputMode="url"
+                    />
+                  </label>
+                  {requestType === 'Connect Existing Domain' && (
+                    <label className="cd-field" htmlFor="cd-registrar">
+                      <span>Where is it registered?</span>
+                      <select id="cd-registrar" value={domainRegistrar} onChange={e => setDomainRegistrar(e.target.value)}>
+                        {REGISTRARS.map(r => (
+                          <option key={r}>{r}</option>
+                        ))}
                       </select>
-                    </div>
-                  </>
-                )}
-
-                <div className="field">
-                  <label>Tell us more</label>
-                  <textarea 
-                    value={requestDetails} 
-                    onChange={e => setRequestDetails(e.target.value)} 
-                    placeholder={
-                      requestType === 'New Website' ? 'Describe the website you want to build...' :
-                      requestType === 'Website Maintenance' ? 'What needs fixing or updating on your current site?' :
-                      'Any extra details we should know?'
-                    } 
-                    required 
-                  />
+                    </label>
+                  )}
                 </div>
+              )}
 
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-                  <button type="button" className="btn-icon" onClick={() => setShowRequestForm(false)}>Cancel</button>
-                  <button type="submit" className="btn-icon primary" disabled={requestSending}>
-                    {requestSending ? 'Sending...' : 'Submit Request'}
-                  </button>
-                </div>
-              </form>
-            )}
+              <label className="cd-field" htmlFor="cd-details">
+                <span>Details</span>
+                <textarea
+                  id="cd-details"
+                  rows={5}
+                  value={requestDetails}
+                  maxLength={1500}
+                  onChange={e => setRequestDetails(e.target.value)}
+                  placeholder={activeType.placeholder}
+                />
+                <small className="cd-count">{requestDetails.length}/1500</small>
+              </label>
+
+              {requestError && (
+                <p className="cd-error" role="alert">
+                  {requestError}
+                </p>
+              )}
+
+              <div className="cd-dialog__foot">
+                <button type="button" className="cd-btn cd-btn--ghost" onClick={closeRequest}>
+                  Cancel
+                </button>
+                <button type="submit" className="cd-btn cd-btn--primary" disabled={requestSending}>
+                  {requestSending ? 'Sending…' : 'Send request'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* The Chat Widget */}
+      {/* ---------- Toasts ---------- */}
+      <div className="cd-toasts" aria-live="polite" aria-atomic="false">
+        {toasts.map(t => (
+          <div key={t.id} className={`cd-toast cd-toast--${t.tone}`}>
+            {t.text}
+          </div>
+        ))}
+      </div>
+
       <LiveChat />
     </div>
   );
